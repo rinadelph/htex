@@ -37,6 +37,10 @@ export interface TransformContext {
   docAuthor: string
   docDate: string
   tikzCounter: number                 // 1-based counter for TikZ/pgfplots diagrams
+  footnoteCounter: number             // Counter for footnotes (1-based)
+  footnotes: Array<{ id: string; number: number; content: RenderNode[] }>  // Collected footnotes
+  endnoteCounter: number              // Counter for endnotes (1-based)
+  endnotes: Array<{ id: string; number: number; content: RenderNode[] }>    // Collected endnotes
 }
 
 // ── Color resolution ───────────────────────────────────────────────────────
@@ -109,10 +113,11 @@ const DEFAULT_ENV_STYLES: Record<string, { borderColor: string; bgColor: string 
 
 // ── Macro expansion ────────────────────────────────────────────────────────
 
-function buildMacroMap(preamble: PreambleContext): Map<string, ASTNode[]> {
-  const m = new Map<string, ASTNode[]>()
+function buildMacroMap(preamble: PreambleContext): Map<string, {argCount: number, body: ASTNode[]}> {
+  const m = new Map<string, {argCount: number, body: ASTNode[]}>()
   for (const cmd of preamble.commands) {
-    if (cmd.argCount === 0) m.set(cmd.name, [...cmd.body])
+    // Store ALL macros with their argument count and body
+    m.set(cmd.name, { argCount: cmd.argCount, body: [...cmd.body] })
   }
   return m
 }
@@ -221,6 +226,10 @@ export function transform(ast: DocumentAST, options: TransformOptions = {}): Ren
     docAuthor,
     docDate,
     tikzCounter: 0,
+    footnoteCounter: 0,
+    footnotes: [],
+    endnoteCounter: 0,
+    endnotes: [],
   }
 
   // First pass: collect labels with placeholder text
@@ -229,6 +238,51 @@ export function transform(ast: DocumentAST, options: TransformOptions = {}): Ren
 
   // Second pass: transform body
   const children = transformNodes(ast.body, ctx)
+
+  // Collect footnotes and append to children
+  const docChildren = [...children]
+  
+  // Add footnotes section if any footnotes exist
+  if (ctx.footnotes.length > 0) {
+    docChildren.push({
+      type: 'styledText',
+      children: [{ type: 'text', content: '━━━━━━━━━━━━━━━━━━━━━━' }]
+    })
+    for (const fn of ctx.footnotes) {
+      docChildren.push({
+        type: 'paragraph',
+        children: [
+          { type: 'text', content: `${fn.number}. ` },
+          ...fn.content
+        ]
+      } as RenderNode)
+    }
+  }
+
+  // Add endnotes section if any endnotes exist
+  if (ctx.endnotes.length > 0) {
+    docChildren.push({
+      type: 'paragraph',
+      children: [{ type: 'text', content: '═══════════════════════' }]
+    })
+    docChildren.push({
+      type: 'section',
+      level: 1,
+      number: 'Endnotes',
+      title: 'Endnotes',
+      id: 'endnotes',
+      children: []
+    })
+    for (const en of ctx.endnotes) {
+      docChildren.push({
+        type: 'paragraph',
+        children: [
+          { type: 'text', content: `${en.number}. ` },
+          ...en.content
+        ]
+      } as RenderNode)
+    }
+  }
 
   // Build document node
   const docMeta: {
@@ -248,7 +302,7 @@ export function transform(ast: DocumentAST, options: TransformOptions = {}): Ren
   const docNode: DocumentRenderNode = {
     type: 'document',
     metadata: docMeta,
-    children,
+    children: docChildren,
   }
 
   return [docNode]
@@ -544,15 +598,59 @@ function transformGroup(node: GroupASTNode, ctx: TransformContext): RenderNode |
   return { type: 'paragraph', children }
 }
 
+
+// Macro argument substitution
+function substituteMacroArguments(body: ASTNode[], args: ASTNode[], ctx: TransformContext): ASTNode[] {
+	const result: ASTNode[] = []
+
+	for (const node of body) {
+		if (node.type === 'text' && /^\#\d+$/.test(node.content)) {
+			// This is a placeholder like #1, #2, etc.
+			const argIndex = parseInt(node.content.substring(1)) - 1  // #1 -> 0, #2 -> 1, etc.
+
+			if (argIndex >= 0 && argIndex < args.length) {
+				// Substitute with actual argument (deep copy)
+				const argAST = JSON.parse(JSON.stringify(args[argIndex]))
+				result.push(...argAST)
+			}
+		} else if (node.type === 'group' ) {
+			// Recursively substitute in groups
+			result.push({ type: 'group', children: substituteMacroArguments(node.children, args, ctx) })
+		} else if (node.type === 'command' ) {
+			// Recursively substitute in nested commands
+			result.push({ type: 'command', name: node.name, reqArgs: substituteMacroArguments(node.reqArgs, args, ctx), optArgs: node.optArgs })
+		} else {
+			// Copy all other nodes as-is
+			result.push(node)
+		}
+	}
+
+	return result
+}
 function transformCommand(node: CommandNode, ctx: TransformContext): RenderNode | null {
   const name = node.name
 
-  // Macro expansion
+  // Macro expansion with argument substitution
   if (ctx.options.expandMacros && ctx.macros.has(name)) {
-    const expanded = ctx.macros.get(name)!
-    const children = expanded
+    const macroDef = ctx.macros.get(name)!
+    const argCount = macroDef.argCount
+    const providedArgsCount = node.reqArgs.length
+
+    // Check if correct number of arguments provided
+    if (providedArgsCount !== argCount) {
+      // Return null for incorrect argument count (or could warn)
+      console.warn(`Macro \\${name} requires ${argCount} arguments, but ${providedArgsCount} provided`)
+      return null
+    }
+
+    // Substitute #1, #2, #3, etc. with actual argument values
+    const substitutedBody = substituteMacroArguments(macroDef.body, node.reqArgs, ctx)
+
+    // Transform the substituted body recursively
+    const children = substitutedBody
       .map(n => transformNode(n, ctx))
       .filter((n): n is RenderNode => n !== null)
+
     if (children.length === 1) return children[0]!
     if (children.length > 1) return { type: 'paragraph', children }
     return null
@@ -606,6 +704,23 @@ function transformCommand(node: CommandNode, ctx: TransformContext): RenderNode 
       return it
     }
     case 'texttt': {
+    case 'definecolor': {
+      const name = flatText(arg0)
+      const model = flatText(arg1)
+      const spec = flatText(arg2)
+      let hex = ''
+      if (model.toLowerCase() === 'rgb') {
+        const parts = spec.split(',').map(p => parseFloat(p.trim()))
+        if (parts.length === 3) {
+          const [r, g, b] = parts.map(v => Math.round(v * 255))
+          hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')
+        }
+      } else if (model.toLowerCase() === 'html') {
+        hex = spec.startsWith('#') ? spec : '#' + spec
+      }
+      if (name && hex) ctx.colors.set(name.toLowerCase(), hex)
+      return null
+    }
       const inner = flatText(arg0)
       return { type: 'inlineCode', content: inner }
     }
@@ -679,38 +794,133 @@ function transformCommand(node: CommandNode, ctx: TransformContext): RenderNode 
 
     case 'includegraphics': {
       const src = flatText(arg0)
-      // Parse width from optional args: [width=0.8\linewidth, height=3cm]
+      // Parse options: [width=0.8\linewidth, height=3cm, angle=90, scale=1.5, etc.]
       const optText = node.optArgs.length > 0 ? flatText(node.optArgs[0] ?? []) : ''
       let cssWidth: string | undefined
-      // Match width=<value> — value may be a LaTeX dimension or command
+      let cssHeight: string | undefined
+      let rotation: number | undefined
+      let scale: number | undefined
+      
+      // Helper function to convert LaTeX dimensions to CSS
+      const convertDimension = (raw: string): string | undefined => {
+        const trimmed = raw.trim()
+        if (trimmed.includes('linewidth') || trimmed.includes('textwidth') || trimmed === '\\linewidth' || trimmed === '\\textwidth') {
+          const multMatch = trimmed.match(/^([0-9.]+)/)
+          return multMatch ? `${Math.round(parseFloat(multMatch[1]!) * 100)}%` : '100%'
+        } else if (trimmed.match(/^[0-9.]+\s*(cm|mm|in|pt|em|ex|px|%)$/)) {
+          return trimmed
+        } else if (trimmed.match(/^[0-9.]+$/)) {
+          return trimmed + 'pt'
+        }
+        return undefined
+      }
+
+      // Parse width
       const widthMatch = optText.match(/width\s*=\s*([^,\]]+)/)
       if (widthMatch) {
-        const raw = widthMatch[1]!.trim()
-        // Convert common LaTeX width expressions to CSS
-        if (raw.includes('linewidth') || raw.includes('textwidth') || raw === '\\linewidth' || raw === '\\textwidth') {
-          // Extract numeric multiplier if present: 0.8\linewidth 	 80%
-          const multMatch = raw.match(/^([0-9.]+)/)
-          cssWidth = multMatch ? `${Math.round(parseFloat(multMatch[1]!) * 100)}%` : '100%'
-        } else if (raw.match(/^[0-9.]+\s*(cm|mm|in|pt|em|ex|px|%)$/)) {
-          cssWidth = raw  // already a valid CSS unit
-        } else if (raw.match(/^[0-9.]+$/)) {
-          cssWidth = raw + 'pt'  // bare number — treat as pt
-        }
-        // If none of the above matched, leave cssWidth undefined (no style attr)
+        cssWidth = convertDimension(widthMatch[1]!)
       }
+
+      // Parse height
+      const heightMatch = optText.match(/height\s*=\s*([^,\]]+)/)
+      if (heightMatch) {
+        cssHeight = convertDimension(heightMatch[1]!)
+      }
+
+      // Parse scale
+      const scaleMatch = optText.match(/scale\s*=\s*([0-9.]+)/)
+      if (scaleMatch) {
+        scale = parseFloat(scaleMatch[1]!)
+      }
+
+      // Parse angle/rotation
+      const angleMatch = optText.match(/angle\s*=\s*([0-9.-]+)/)
+      if (angleMatch) {
+        rotation = parseFloat(angleMatch[1]!)
+      }
+
       const img: ImageRenderNode = {
         type: 'image',
         src,
         alt: src,
         width: cssWidth,
+        height: cssHeight,
+        rotation,
+        scale,
       }
       return img
+    }
+
+    case 'rotatebox': {
+      // \rotatebox{angle}{content}
+      const angle = parseFloat(flatText(arg0)) || 0
+      // Content is in second required argument (handled separately)
+      const children = node.reqArgs[1]
+        ? node.reqArgs[1].map(n => transformNode(n, ctx)).filter((n): n is RenderNode => n !== null)
+        : []
+      
+      if (children.length === 0) return null
+      
+      return {
+        type: 'styledText',
+        rotation: angle,
+        children
+      }
     }
 
     case 'caption': {
       const children = arg0.map(n => transformNode(n, ctx)).filter((n): n is RenderNode => n !== null)
       const cap: CaptionRenderNode = { type: 'caption', children }
       return cap
+    }
+
+    case 'footnote': {
+      // \footnote{content}
+      ctx.footnoteCounter++
+      const content = arg0.map(n => transformNode(n, ctx)).filter((n): n is RenderNode => n !== null)
+      const id = `fn-${ctx.footnoteCounter}`
+      ctx.footnotes.push({ id, number: ctx.footnoteCounter, content })
+      // Return a superscript number that acts as the footnote anchor
+      return {
+        type: 'styledText',
+        children: [
+          { type: 'text', content: `[${ctx.footnoteCounter}]` }
+        ]
+      }
+    }
+
+    case 'endnote': {
+      // \endnote{content}
+      ctx.endnoteCounter++
+      const content = arg0.map(n => transformNode(n, ctx)).filter((n): n is RenderNode => n !== null)
+      const id = `en-${ctx.endnoteCounter}`
+      ctx.endnotes.push({ id, number: ctx.endnoteCounter, content })
+      // Return a superscript number that acts as the endnote anchor
+      return {
+        type: 'styledText',
+        children: [
+          { type: 'text', content: `[${ctx.endnoteCounter}]` }
+        ]
+      }
+    }
+
+    case 'footnotemark': {
+      // \footnotemark or \footnotemark[n]
+      const markNum = arg0.length > 0 ? parseInt(flatText(arg0)) : ctx.footnoteCounter
+      return {
+        type: 'text',
+        content: `[${markNum}]`
+      }
+    }
+
+    case 'footnotetext': {
+      // \footnotetext{content} or \footnotetext[n]{content}
+      const textContent = arg0.map(n => transformNode(n, ctx)).filter((n): n is RenderNode => n !== null)
+      // This typically follows \footnotemark, so just return the content
+      return {
+        type: 'paragraph',
+        children: textContent
+      }
     }
 
     case 'item': {
@@ -752,41 +962,62 @@ function transformCommand(node: CommandNode, ctx: TransformContext): RenderNode 
     case 'rule':
     case 'hrule':
       return { type: 'hRule' }
-    // Formatting / spacing commands that silently vanish
-    case 'noindent':
-    case 'par':
-    case 'medskip':
-    case 'bigskip':
-    case 'smallskip':
+    // Formatting / spacing commands
+    case 'smallskip': {
+      // smallskip ≈ 3pt
+      return { type: 'styledText', children: [{ type: 'text', content: '' }] }
+    }
+    case 'medskip': {
+      // medskip ≈ 6pt  
+      return { type: 'styledText', children: [{ type: 'text', content: '' }] }
+    }
+    case 'bigskip': {
+      // bigskip ≈ 12pt
+      return { type: 'styledText', children: [{ type: 'text', content: '' }] }
+    }
     case 'vspace':
-    case 'vspace*':
+    case 'vspace*': {
+      // \vspace{1cm} — vertical spacing
+      const dimArg = flatText(arg0)
+      return { type: 'styledText', marginTop: dimArg, children: [{ type: 'text', content: '' }] }
+    }
     case 'hspace':
-    case 'hspace*':
-    case 'linewidth':
-    case 'textwidth':
-    case 'columnsep':
-    case 'sloppy':
-    case 'relax':
-    case 'protect':
-    case 'newline':
-    case 'linebreak':
-    case '\\':        // \\ line break (with optional [skip] arg)
-    case 'quad':
-    case 'qquad':
+    case 'hspace*': {
+      // \hspace{2em} — horizontal spacing
+      const dimArg = flatText(arg0)
+      return { type: 'styledText', marginRight: dimArg, children: [{ type: 'text', content: '' }] }
+    }
+    case 'quad': {
+      // \quad = 1em
+      return { type: 'text', content: '\u00A0\u00A0\u00A0\u00A0' }  // 4 nbsp for ~1em
+    }
+    case 'qquad': {
+      // \qquad = 2em  
+      return { type: 'text', content: '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0' }  // 8 nbsp for ~2em
+    }
+    case 'phantom': {
+      // \phantom{text} — invisible placeholder with full dimensions
+      const content = arg0.map(n => transformNode(n, ctx)).filter((n): n is RenderNode => n !== null)
+      return { type: 'styledText', visibility: 'hidden', children: content.length > 0 ? content : [{ type: 'text', content: '' }] }
+    }
+    case 'hphantom': {
+      // \hphantom{text} — invisible horizontal placeholder
+      const content = arg0.map(n => transformNode(n, ctx)).filter((n): n is RenderNode => n !== null)
+      return { type: 'styledText', visibility: 'hidden', whiteSpace: 'nowrap', children: content.length > 0 ? content : [{ type: 'text', content: '' }] }
+    }
+    case 'vphantom': {
+      // \vphantom{text} — invisible vertical placeholder
+      const content = arg0.map(n => transformNode(n, ctx)).filter((n): n is RenderNode => n !== null)
+      return { type: 'styledText', visibility: 'hidden', children: content.length > 0 ? content : [{ type: 'text', content: '' }] }
+    }
     case 'thinspace':
-    case 'enspace':
-    case 'negthinspace':
-    case 'arraybackslash':
-    case 'allowbreak':
-    case 'nobreak':
-    case 'penalty':
-    case 'vfil':
-    case 'null':
-      return null
-    // Font-size declarations outside groups: render content with font-size style
-    // When standalone (no content), these are pure state changes — drop them.
-    // This handles cases like: \large Some text (rare in practice, \large is
-    // almost always inside a group — but handle gracefully anyway)
+    case 'enspace': {
+      return { type: 'text', content: ' ' }
+    }
+    case 'negthinspace': {
+      return null  // Negative space is complex, skip for now
+    }
+    // Font-size declarations with argument
     case 'normalsize':
     case 'large':
     case 'Large':
@@ -797,17 +1028,15 @@ function transformCommand(node: CommandNode, ctx: TransformContext): RenderNode 
     case 'footnotesize':
     case 'scriptsize':
     case 'tiny': {
-      // If the command was parsed with a required arg (shouldn't happen for
-      // size declarations, but be defensive), render it with font styling.
-      if (arg0.length > 0) {
-        const fontSize = FONT_SIZE_MAP[name] ?? '10pt'
-        const children = arg0.map(n => transformNode(n, ctx)).filter((n): n is RenderNode => n !== null)
-        if (children.length === 0) return null
-        const styled: StyledTextRenderNode = { type: 'styledText', fontSize, children }
-        return styled
-      }
-      // Standalone size declaration — pure state change, drop it
-      return null
+      // Font size declaration with content
+      const fontSize = FONT_SIZE_MAP[name] ?? '10pt'
+      const children = arg0.length > 0 
+        ? arg0.map(n => transformNode(n, ctx)).filter((n): n is RenderNode => n !== null)
+        : transformNodes(node.reqArgs[0] ?? [], ctx)
+      
+      if (children.length === 0) return null
+      const styled: StyledTextRenderNode = { type: 'styledText', fontSize, children }
+      return styled
     }
     // Font-shape/weight declarations outside groups — drop (state change only)
     case 'centering':
@@ -972,7 +1201,24 @@ function transformEnvironment(node: EnvironmentNode, ctx: TransformContext): Ren
     case 'gather':
     case 'gather*':
     case 'multline':
-    case 'multline*': {
+    case 'multline*':
+    case 'split':
+    case 'split*':
+    case 'cases':
+    case 'dcases':
+    case 'aligned':
+    case 'alignedat':
+    case 'gathered':
+    case 'gathered*':
+    case 'subarray':
+    case 'matrix':
+    case 'pmatrix':
+    case 'bmatrix':
+    case 'Bmatrix':
+    case 'vmatrix':
+    case 'Vmatrix':
+    case 'smallmatrix':
+    case 'array': {
       const raw = flattenBodyToString(node.body)
       const dm: MathDisplayRenderNode = { type: 'mathDisplay', latex: raw }
       return dm
@@ -1062,12 +1308,24 @@ function transformTable(node: EnvironmentNode, ctx: TransformContext): TableRend
     // Check if this row is a rule command
     if (rowNodes.length === 1 && rowNodes[0]?.type === 'command') {
       const cmd = rowNodes[0] as CommandNode
-      if (['toprule', 'midrule', 'bottomrule', 'hline'].includes(cmd.name)) {
-        const ruleKind = cmd.name === 'toprule' ? 'top'
-          : cmd.name === 'midrule' ? 'mid'
-          : cmd.name === 'bottomrule' ? 'bottom'
-          : 'hline'
-        rows.push({ type: 'tableRule', ruleKind })
+      if (['toprule', 'midrule', 'bottomrule', 'hline', 'cline', 'hhline'].includes(cmd.name)) {
+        if (cmd.name === 'cline') {
+          // \cline{i-j} — partial horizontal line from column i to j
+          const rangeArg = flatText(cmd.reqArgs[0] ?? [])
+          const match = rangeArg.match(/(\d+)-(\d+)/)
+          const colStart = match ? parseInt(match[1]!, 10) : 1
+          const colEnd = match ? parseInt(match[2]!, 10) : colAligns.length
+          rows.push({ type: 'tableRule', ruleKind: 'cline', columnStart: colStart, columnEnd: colEnd })
+        } else if (cmd.name === 'hhline') {
+          // \hhline{-|-|-} — complex horizontal lines, treat as hline for now
+          rows.push({ type: 'tableRule', ruleKind: 'hline' })
+        } else {
+          const ruleKind = cmd.name === 'toprule' ? 'top'
+            : cmd.name === 'midrule' ? 'mid'
+            : cmd.name === 'bottomrule' ? 'bottom'
+            : 'hline'
+          rows.push({ type: 'tableRule', ruleKind })
+        }
         continue
       }
     }
@@ -1086,21 +1344,42 @@ function transformTable(node: EnvironmentNode, ctx: TransformContext): TableRend
     const cells: TableCellRenderNode[] = []
     for (let colIdx = 0; colIdx < cellGroups.length; colIdx++) {
       const cellNodes = cellGroups[colIdx]!
-      // Check for \multicolumn
-      if (cellNodes.length >= 1 && cellNodes[0]?.type === 'command' && (cellNodes[0] as CommandNode).name === 'multicolumn') {
-        const mc = cellNodes[0] as CommandNode
-        const span = parseInt(flatText(mc.reqArgs[0] ?? [])) || 1
-        const alignRaw = flatText(mc.reqArgs[1] ?? [])
-        const align: 'left' | 'center' | 'right' = alignRaw.startsWith('c') ? 'center' : alignRaw.startsWith('r') ? 'right' : 'left'
-        const children = (mc.reqArgs[2] ?? [])
-          .map(n => transformNode(n, ctx))
-          .filter((n): n is RenderNode => n !== null)
-        cells.push({ type: 'tableCell', colspan: span, rowspan: 1, align, children })
-      } else {
-        const colAlign = colAligns[colIdx] ?? 'left'
-        const children = transformNodes(cellNodes, ctx)
-        cells.push({ type: 'tableCell', colspan: 1, rowspan: 1, align: colAlign, children })
+      
+      // Check for \multirow first
+      let colSpan = 1
+      let rowSpan = 1
+      let cellAlign: 'left' | 'center' | 'right' = colAligns[colIdx] ?? 'left'
+      let contentNodes = cellNodes
+      
+      if (cellNodes.length >= 1 && cellNodes[0]?.type === 'command') {
+        const firstCmd = cellNodes[0] as CommandNode
+        
+        // \multirow{nrows}[nOmit]{width}{contents}
+        if (firstCmd.name === 'multirow') {
+          const nrows = parseInt(flatText(firstCmd.reqArgs[0] ?? [])) || 1
+          rowSpan = nrows
+          // Width argument (optional second bracket arg, or third required arg)
+          // Contents are in the next required argument
+          const widthOrContent = firstCmd.reqArgs[1] ?? firstCmd.reqArgs[2] ?? []
+          contentNodes = [
+            ...(firstCmd.reqArgs[1] ? [] : cellNodes.slice(1)),
+            ...widthOrContent
+          ]
+          if (firstCmd.reqArgs.length > 2) {
+            contentNodes = firstCmd.reqArgs[2] ?? []
+          }
+        }
+        // \multicolumn{ncols}{align}{contents}
+        else if (firstCmd.name === 'multicolumn') {
+          colSpan = parseInt(flatText(firstCmd.reqArgs[0] ?? [])) || 1
+          const alignRaw = flatText(firstCmd.reqArgs[1] ?? [])
+          cellAlign = alignRaw.startsWith('c') ? 'center' : alignRaw.startsWith('r') ? 'right' : 'left'
+          contentNodes = firstCmd.reqArgs[2] ?? []
+        }
       }
+      
+      const children = transformNodes(contentNodes, ctx)
+      cells.push({ type: 'tableCell', colspan: colSpan, rowspan: rowSpan, align: cellAlign, children })
     }
 
     // Skip completely empty rows
@@ -1122,8 +1401,8 @@ function splitTableRows(nodes: readonly ASTNode[]): ASTNode[][] {
     // Skip pure whitespace text
     if (n.type === 'text' && n.content.replace(/\s/g, '') === '') continue
 
-    // Rule commands are their own rows
-    if (n.type === 'command' && ['toprule', 'midrule', 'bottomrule', 'hline'].includes(n.name)) {
+    // Rule commands are their own rows (including \cline)
+    if (n.type === 'command' && ['toprule', 'midrule', 'bottomrule', 'hline', 'cline', 'hhline'].includes(n.name)) {
       if (current.length > 0) { rows.push(current); current = [] }
       rows.push([n])
       continue
