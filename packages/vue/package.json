@@ -1,0 +1,34 @@
+{
+  "name": "@htex/vue",
+  "version": "0.0.1",
+  "description": "Vue adapter for @htex/core — render LaTeX documents as Vue components",
+  "keywords": ["latex", "vue", "htex", "rendering"],
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "@htex/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "vue": ">=3.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "vue": "^3.0.0",
+    "typescript": "~5.4.0"
+  }
+}

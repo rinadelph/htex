@@ -1,0 +1,30 @@
+{
+  "name": "@htex/vanilla",
+  "version": "0.0.1",
+  "description": "Vanilla JS adapter for @htex/core — render LaTeX documents with no framework dependencies",
+  "keywords": ["latex", "vanilla", "htex", "rendering", "dom"],
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "@htex/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "~5.4.0"
+  }
+}

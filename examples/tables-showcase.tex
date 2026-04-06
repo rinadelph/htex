@@ -1,0 +1,115 @@
+\documentclass{article}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+
+\title{Advanced LaTeX Table Features}
+\author{htex Library}
+\date{2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Multicolumn Spanning}
+
+The \texttt{multicolumn} command allows cells to span multiple columns:
+
+\begin{tabular}{|l|l|l|l|}
+\hline
+\multicolumn{2}{|c|}{\textbf{Merged Header}} & \multicolumn{2}{|c|}{\textbf{Another Merged}} \\
+\hline
+A1 & A2 & B1 & B2 \\
+C1 & C2 & D1 & D2 \\
+\hline
+\end{tabular}
+
+\section{Multirow Spanning}
+
+The \texttt{multirow} command allows cells to span multiple rows:
+
+\begin{tabular}{|l|c|r|}
+\hline
+\multirow{2}{*}{Spans 2 Rows} & Data 1 & Value 1 \\
+& Data 2 & Value 2 \\
+\hline
+Row 2 & Middle & Right \\
+\hline
+\end{tabular}
+
+\section{Partial Horizontal Lines with Cline}
+
+Use \texttt{cline} to draw horizontal lines across only specific columns:
+
+\begin{tabular}{|l|c|r|r|}
+\hline
+Header 1 & Header 2 & Header 3 & Header 4 \\
+\cline{2-4}
+Data A & Data B & Data C & Data D \\
+Data E & Data F & Data G & Data H \\
+\cline{1-2}
+End 1 & End 2 & & \\
+\hline
+\end{tabular}
+
+\section{Booktabs Professional Styling}
+
+The booktabs package provides three commands for professional-looking tables:
+
+\begin{tabular}{lll}
+\toprule
+\textbf{Column 1} & \textbf{Column 2} & \textbf{Column 3} \\
+\midrule
+Data 1 & Data 2 & Data 3 \\
+Data 4 & Data 5 & Data 6 \\
+Data 7 & Data 8 & Data 9 \\
+\bottomrule
+\end{tabular}
+
+\section{Complex Tables with Multiple Features}
+
+Combining multirow, multicolumn, and booktabs:
+
+\begin{tabular}{lccr}
+\toprule
+\multicolumn{2}{c}{\textbf{Category}} & \textbf{Value} & \textbf{Total} \\
+\midrule
+\multirow{2}{*}{Group A} & Item 1 & 10 & \multirow{2}{*}{30} \\
+& Item 2 & 20 & \\
+\midrule
+\multirow{2}{*}{Group B} & Item 3 & 15 & \multirow{2}{*}{35} \\
+& Item 4 & 20 & \\
+\bottomrule
+\end{tabular}
+
+\section{Column Alignment Control}
+
+Use \texttt{multicolumn} to override column alignment:
+
+\begin{tabular}{|l|l|l|}
+\hline
+\multicolumn{1}{|c|}{Centered} & Left & Right \\
+\hline
+Normal Left & \multicolumn{1}{c|}{Override Center} & Normal Left \\
+\hline
+\end{tabular}
+
+\section{Complex Mixed Table}
+
+A realistic example combining all features:
+
+\begin{tabular}{|l|c|c|c|r|}
+\hline
+\multicolumn{5}{|c|}{\textbf{Sales Report Q1-Q4}} \\
+\hline
+Region & Q1 & Q2 & Q3 & \multicolumn{1}{|c|}{Q4} \\
+\cline{2-5}
+North & 100 & 120 & 140 & 160 \\
+\cline{2-4}
+South & \multicolumn{2}{c|}{150} & 170 & 190 \\
+East & 80 & 90 & \multirow{2}{*}{110} & 130 \\
+West & 95 & 105 & & 125 \\
+\hline
+\end{tabular}
+
+\end{document}

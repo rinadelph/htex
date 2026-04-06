@@ -1,0 +1,9 @@
+node_modules
+dist
+.bun
+*.tsbuildinfo
+/tmp
+*.bak
+*.log
+.swarm
+swarmos_debug*

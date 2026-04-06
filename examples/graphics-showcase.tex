@@ -1,0 +1,132 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{rotating}
+
+\title{Graphics and Images Support}
+\author{htex Library}
+\date{2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Basic Image Inclusion}
+
+You can include images using the \texttt{includegraphics} command:
+
+\begin{figure}[h]
+  \centering
+  \includegraphics{example.png}
+  \caption{A simple image}
+  \label{fig:simple}
+\end{figure}
+
+\section{Image Sizing}
+
+\subsection{Fixed Width}
+
+Image with 50\% page width:
+
+\includegraphics[width=0.5\textwidth]{image.png}
+
+\subsection{Fixed Height}
+
+Image with 3cm height:
+
+\includegraphics[height=3cm]{image.png}
+
+\subsection{Scaling}
+
+Image scaled to 150\% of original size:
+
+\includegraphics[scale=1.5]{image.png}
+
+Image scaled to 0.75x:
+
+\includegraphics[scale=0.75]{image.png}
+
+\section{Image Rotation}
+
+\subsection{Direct Rotation with rotatebox}
+
+Text with rotated content:
+
+This is \rotatebox{90}{rotated text} inline.
+
+\subsection{Image Rotation with angle Option}
+
+Image rotated 45 degrees:
+
+\includegraphics[angle=45, width=5cm]{image.png}
+
+Image rotated 90 degrees:
+
+\includegraphics[angle=90, height=4cm]{image.png}
+
+\section{Combined Options}
+
+Multiple options can be combined:
+
+\includegraphics[width=8cm, angle=270, scale=1.2]{image.png}
+
+Width with aspect ratio preservation:
+
+\includegraphics[width=7cm]{image.png}
+
+\section{Figures with Captions}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.8\textwidth]{photo.jpg}
+  \caption{A professional photograph with caption}
+  \label{fig:photo}
+\end{figure}
+
+See Figure \ref{fig:photo} on page \pageref{fig:photo}.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[height=5cm, angle=180]{rotated-diagram.png}
+  \caption{A diagram rotated 180 degrees}
+  \label{fig:diagram}
+\end{figure}
+
+\section{Inline Images}
+
+You can also use images inline: \includegraphics[height=0.8em]{icon.png} like this.
+
+Images scale with text size: \large \includegraphics[height=1em]{icon.png} \normalsize
+
+\section{Advanced Usage}
+
+\subsection{Trimming}
+
+Remove unwanted borders (when supported):
+
+\includegraphics[width=6cm, trim=0 0 2cm 1cm]{image.png}
+
+\subsection{Clipping}
+
+Clip to specific dimensions:
+
+\includegraphics[width=4cm, clip]{photo.jpg}
+
+\subsection{Multiple Images in Sequence}
+
+\includegraphics[width=0.3\textwidth]{img1.png}
+\hspace{0.5cm}
+\includegraphics[width=0.3\textwidth]{img2.png}
+\hspace{0.5cm}
+\includegraphics[width=0.3\textwidth]{img3.png}
+
+\section{Best Practices}
+
+\begin{enumerate}
+  \item Always use meaningful file names for images
+  \item Include captions in figures for clarity
+  \item Use labels for cross-referencing
+  \item Optimize image sizes for web presentation
+  \item Ensure images are in supported formats (PNG, JPG, GIF, SVG)
+\end{enumerate}
+
+\end{document}

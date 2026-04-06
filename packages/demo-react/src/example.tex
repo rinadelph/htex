@@ -1,0 +1,499 @@
+\documentclass[10pt]{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{natbib}
+\usepackage{fancyhdr}
+
+% Define colors
+\definecolor{codeblue}{rgb}{0,0,0.5}
+\definecolor{codered}{rgb}{0.5,0,0}
+\definecolor{codegreen}{rgb}{0,0.5,0}
+
+% Code listing setup
+\lstset{
+    basicstyle=\ttfamily\small,
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{codeblue},
+    stringstyle=\color{codered},
+    breaklines=true,
+    showstringspaces=false,
+    frame=single
+}
+
+% Custom macros
+\newcommand{\RR}{\mathbb{R}}
+\newcommand{\NN}{\mathbb{N}}
+\newcommand{\EE}{\mathbb{E}}
+\newcommand{\PP}{\mathbb{P}}
+\newcommand{\VV}{\mathbb{V}}
+\newcommand{\HH}{\mathbb{H}}
+\newcommand{\KK}{\mathbb{K}}
+\newcommand{\LL}{\mathcal{L}}
+\newcommand{\MM}{\mathcal{M}}
+\newcommand{\VarOp}{\mathrm{Var}}
+\newcommand{\argmax}{\arg\max}
+\newcommand{\argmin}{\arg\min}
+\newcommand{\norm}[1]{\left\|#1\right\|}
+\newcommand{\abs}[1]{\left|#1\right|}
+\newcommand{\set}[1]{\left\{#1\right\}}
+\newcommand{\seq}[1]{\left(#1\right)}
+\newcommand{\expect}[1]{\EE\left[#1\right]}
+\newcommand{\prob}[1]{\PP\left(#1\right)}
+\newcommand{\given}{\mid}
+\newcommand{\indep}{\perp\!\!\!\perp}
+\newcommand{\defeq}{\triangleq}
+\newcommand{\transpose}{^\top}
+\newcommand{\invtranspose}{^{-\top}}
+\newcommand{\td}[3]{#1(#2, #3)}
+\newcommand{\tdd}[4]{#1(#2, #3, #4)}
+\newcommand{\vfn}[3]{V_{#1}(#2, #3)}
+\newcommand{\qfn}[4]{Q_{#1}(#2, #3, #4)}
+\newcommand{\vopt}[2]{V^*(#1, #2)}
+\newcommand{\qopt}[3]{Q^*(#1, #2, #3)}
+\newcommand{\pi}{\pi}
+\newcommand{\pistar}{\pi^*}
+\newcommand{\piopt}[2]{\pi^*(#1, #2)}
+
+\title{Reinforcement Learning: A Comprehensive Overview}
+\author{Kevin P. Murphy \and Demo Contributors}
+\date{\today}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{htex LaTeX-to-HTML Rendering}
+\lhead{Reinforcement Learning Overview}
+\rfoot{Page \thepage}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This is a comprehensive overview of the field of reinforcement learning (RL) and sequential decision making. This document demonstrates the full capabilities of the htex LaTeX-to-HTML engine, including support for:
+\begin{itemize}
+    \item Complex mathematical equations and environments
+    \item Tables with multirow and multicolumn support
+    \item Code listings and syntax highlighting
+    \item Citations and references
+    \item Advanced typography and formatting
+    \item Sectioning and document structure
+    \item Graphics and figure environments
+    \item Footnotes and endnotes\footnote{This is a sample footnote to test htex rendering capabilities.}
+\end{itemize}
+
+The content of this document is adapted from research in reinforcement learning and is used as a comprehensive stress test for the LaTeX parser.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Introduction to Reinforcement Learning}
+
+Reinforcement learning (RL) is a paradigm for learning sequential decision-making policies through interaction with an environment. Unlike supervised learning, which requires labeled training examples, RL agents learn from rewards or penalties received as feedback for their actions.
+
+\subsection{Core Concepts}
+
+\subsubsection{Markov Decision Processes}
+
+A Markov Decision Process (MDP) is a formal mathematical framework for modeling sequential decision-making problems. An MDP is defined by the tuple:
+
+\[
+\mathcal{M} = \langle \mathcal{S}, \mathcal{A}, \mathcal{T}, \mathcal{R}, \gamma, \rho_0 \rangle
+\]
+
+where:
+\begin{itemize}
+    \item $\mathcal{S}$ is the state space
+    \item $\mathcal{A}$ is the action space
+    \item $\mathcal{T}: \mathcal{S} \times \mathcal{A} \times \mathcal{S} \to [0,1]$ is the transition model
+    \item $\mathcal{R}: \mathcal{S} \times \mathcal{A} \to \RR$ is the reward function
+    \item $\gamma \in [0,1]$ is the discount factor
+    \item $\rho_0: \mathcal{S} \to [0,1]$ is the initial state distribution
+\end{itemize}
+
+\subsubsection{Policies and Value Functions}
+
+A policy $\pi: \mathcal{S} \times \mathcal{A} \to [0,1]$ is a mapping from states to action distributions. The value function $V^{\pi}(s)$ represents the expected cumulative discounted reward obtained by following policy $\pi$ starting from state $s$:
+
+\[
+V^{\pi}(s) = \EE_{\pi}\left[\sum_{t=0}^{\infty} \gamma^t r_t \given s_0 = s\right]
+\]
+
+Similarly, the action-value function (Q-function) is defined as:
+
+\[
+Q^{\pi}(s,a) = \EE_{\pi}\left[\sum_{t=0}^{\infty} \gamma^t r_t \given s_0 = s, a_0 = a\right]
+\]
+
+\subsection{Value-Based Methods}
+
+Value-based reinforcement learning methods learn an approximation of the optimal value function:
+
+\[
+V^*(s) = \max_{\pi} V^{\pi}(s)
+\]
+
+The optimal policy can then be recovered via:
+
+\[
+\pi^*(s) = \argmax_{a \in \mathcal{A}} Q^*(s,a)
+\]
+
+\subsubsection{Temporal Difference Learning}
+
+Temporal Difference (TD) learning combines ideas from dynamic programming and Monte Carlo methods. The TD(0) update rule for the value function is:
+
+\[
+V(s) \leftarrow V(s) + \alpha \left[r + \gamma V(s') - V(s)\right]
+\]
+
+where $\alpha$ is the learning rate, $r$ is the immediate reward, and $s'$ is the next state.
+
+\subsubsection{Q-Learning}
+
+Q-learning is an off-policy TD method that learns the optimal action-value function. The update rule is:
+
+\[
+Q(s,a) \leftarrow Q(s,a) + \alpha \left[r + \gamma \max_{a'} Q(s',a') - Q(s,a)\right]
+\]
+
+One key advantage of Q-learning is that it does not require the agent to follow the learned policy during training, making it an off-policy algorithm.
+
+\section{Deep Reinforcement Learning}
+
+Deep reinforcement learning combines neural networks with RL algorithms to handle high-dimensional state and action spaces. 
+
+\subsection{Deep Q-Networks (DQN)}
+
+Deep Q-Networks (DQN) use a neural network to approximate the Q-function:
+
+\[
+Q(s,a;\theta) \approx Q^*(s,a)
+\]
+
+The DQN algorithm maintains two networks:
+\begin{enumerate}
+    \item Main network: $Q(s,a;\theta)$ updated on every step
+    \item Target network: $Q(s,a;\theta^-)$ updated less frequently
+\end{enumerate}
+
+The TD target uses the target network to stabilize training:
+
+\[
+y_i = r_i + \gamma \max_{a'} Q(s_i', a'; \theta^-)
+\]
+
+The loss function minimizes the Mean Squared Error (MSE):
+
+\[
+\LL(\theta) = \EE\left[\left(y_i - Q(s_i, a_i; \theta)\right)^2\right]
+\]
+
+\subsection{Policy Gradient Methods}
+
+\subsubsection{REINFORCE}
+
+The REINFORCE algorithm uses the policy gradient theorem to directly optimize the policy. The gradient estimate is:
+
+\[
+\nabla J(\theta) = \EE_{\pi_\theta}\left[\nabla \log \pi_\theta(a \given s) Q^{\pi_\theta}(s,a)\right]
+\]
+
+The update rule is:
+
+\[
+\theta \leftarrow \theta + \alpha \nabla \log \pi_\theta(a \given s) G_t
+\]
+
+where $G_t = \sum_{k=t}^{T} \gamma^{k-t} r_k$ is the return.
+
+\subsubsection{Actor-Critic Methods}
+
+Actor-Critic methods combine policy gradients (actor) with value function estimation (critic):
+
+\[
+\nabla J(\theta) = \EE_{\pi_\theta}\left[\nabla \log \pi_\theta(a \given s) \cdot A^{\pi}(s,a)\right]
+\]
+
+where $A^{\pi}(s,a) = Q^{\pi}(s,a) - V^{\pi}(s)$ is the advantage function, which can be estimated as:
+
+\[
+A^{\pi}(s,a) \approx r + \gamma V(s') - V(s)
+\]
+
+\subsection{Proximal Policy Optimization (PPO)}
+
+PPO is a modern policy gradient method that uses a clipped surrogate objective to prevent large policy changes:
+
+\[
+L^{CLIP}(\theta) = \EE_t\left[\min(r_t(\theta) \hat{A}_t, \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) \hat{A}_t)\right]
+\]
+
+where $r_t(\theta) = \frac{\pi_\theta(a_t \given s_t)}{\pi_{\theta_{\text{old}}}(a_t \given s_t)}$ is the probability ratio and $\hat{A}_t$ is the estimated advantage.
+
+\section{Advanced Topics}
+
+\subsection{Multi-Agent Reinforcement Learning}
+
+In multi-agent RL, multiple agents learn simultaneously in a shared environment. Key challenges include:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Aspect} & \textbf{Cooperative} & \textbf{Competitive} & \textbf{Mixed} \\
+\hline
+Agent Goals & Aligned & Opposed & Partially aligned \\
+\hline
+Communication & Often helpful & Harmful & Selective \\
+\hline
+Learning Complexity & Medium & High & Very High \\
+\hline
+Example & Robot coordination & Games & Trading \\
+\hline
+\end{tabular}
+\caption{Classification of Multi-Agent RL Scenarios}
+\label{table:marl}
+\end{table}
+
+\subsubsection{Nash Equilibrium}
+
+In competitive settings, agents learn towards Nash Equilibrium, where no agent can improve its payoff by unilaterally changing its strategy:
+
+\[
+\pi_i^* \in \argmax_{\pi_i} \EE[R_i \given \pi_i, \pi_{-i}^*]
+\]
+
+\subsection{Model-Based Reinforcement Learning}
+
+Model-based methods learn a dynamics model $\hat{\mathcal{T}}$ of the environment and use it for planning:
+
+\[
+\hat{\mathcal{T}}_{\theta}(s' \given s, a) \approx \mathcal{T}(s' \given s, a)
+\]
+
+The planning procedure uses the learned model to imagine trajectories without real environment interaction:
+
+\begin{align}
+\hat{s}_0 &= s_{\text{real}} \\
+\hat{a}_t &\sim \pi(\hat{a}_t \given \hat{s}_t) \\
+\hat{s}_{t+1} &\sim \hat{\mathcal{T}}(\hat{s}_{t+1} \given \hat{s}_t, \hat{a}_t) \\
+\hat{r}_t &= \mathcal{R}(\hat{s}_t, \hat{a}_t)
+\end{align}
+
+\subsection{Offline Reinforcement Learning}
+
+Offline RL learns from a fixed dataset without environment interaction. A key concern is Q-learning overestimation. Conservative Q-Learning (CQL) adds a penalty term:
+
+\[
+\LL_Q(\theta) = \EE_{(s,a) \sim \mathcal{D}}\left[\left(r + \gamma \max_{a'} Q(s',a';\theta^-) - Q(s,a;\theta)\right)^2\right] - \alpha \EE_{s \sim \mathcal{D}}\left[\max_a Q(s,a;\theta)\right]
+\]
+
+\section{Integration with Large Language Models}
+
+Large Language Models (LLMs) have been successfully integrated with RL in several ways:
+
+\subsection{LLM as Policy}
+
+LLMs can be used to directly generate actions. The policy is conditioned on the current state:
+
+\[
+\pi_{\text{LLM}}(a \given s) = p_{\text{LLM}}(\text{action tokens} \given \text{state description})
+\]
+
+\subsection{LLM for Reward Specification}
+
+Natural language descriptions of desired behavior can be used to define reward functions:
+
+\[
+r(s,a) = f_{\text{LLM}}(\text{behavior description}, s, a)
+\]
+
+\section{Implementation Considerations}
+
+\subsection{Experience Replay}
+
+Experience replay stores transitions in a buffer and samples minibatches uniformly for training. This breaks temporal correlations and improves sample efficiency:
+
+\begin{lstlisting}[language=Python]
+class ReplayBuffer:
+    def __init__(self, capacity):
+        self.buffer = []
+        self.capacity = capacity
+    
+    def push(self, state, action, reward, next_state, done):
+        if len(self.buffer) >= self.capacity:
+            self.buffer.pop(0)
+        self.buffer.append((state, action, reward, next_state, done))
+    
+    def sample(self, batch_size):
+        indices = random.sample(range(len(self.buffer)), batch_size)
+        return [self.buffer[i] for i in indices]
+\end{lstlisting}
+
+\subsection{Target Network Updates}
+
+The target network $\theta^-$ is periodically synchronized with the main network:
+
+\[
+\theta^- \leftarrow \tau \theta + (1 - \tau) \theta^-
+\]
+
+where $\tau$ is typically very small (e.g., $\tau = 0.001$).
+
+\section{Challenges and Future Directions}
+
+\subsection{Sample Efficiency}
+
+While RL algorithms are powerful, they often require millions of environment interactions. Methods to improve sample efficiency include:
+
+\begin{itemize}
+    \item Model-based methods that use learned dynamics models
+    \item Imitation learning from expert demonstrations
+    \item Transfer learning from related tasks
+    \item Curriculum learning with gradually increasing task difficulty
+\end{itemize}
+
+\subsection{Exploration-Exploitation Tradeoff}
+
+Balancing exploration (trying new actions) and exploitation (maximizing known rewards) is fundamental to RL:
+
+\[
+\pi_{\text{balanced}}(a \given s) = (1-\epsilon) \argmax_a Q(s,a) + \epsilon \frac{1}{|\mathcal{A}|}
+\]
+
+Alternative exploration strategies include:
+\begin{enumerate}
+    \item Epsilon-greedy: Choose random action with probability $\epsilon$
+    \item Softmax: $\pi(a \given s) \propto e^{Q(s,a) / \tau}$
+    \item Upper Confidence Bound (UCB): Select actions with highest optimism
+    \item Thompson Sampling: Sample from posterior distribution of value functions
+\end{enumerate}
+
+\subsection{Function Approximation}
+
+When state/action spaces are large or continuous, function approximation is necessary. However, this introduces challenges:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Challenge} & \textbf{Issue} & \textbf{Solution} \\
+\hline
+Deadly Triad & Divergence risk & Target networks, experience replay \\
+\hline
+Extrapolation Error & Out-of-distribution actions & Pessimistic value estimates \\
+\hline
+Credit Assignment & Long-term dependencies & Eligibility traces, n-step returns \\
+\hline
+\end{tabular}
+\caption{Function Approximation Challenges in RL}
+\label{table:challenges}
+\end{table}
+
+\section{Conclusion}
+
+Reinforcement learning is a powerful paradigm for learning sequential decision-making policies. From classic value-based methods like Q-learning to modern policy gradient methods like PPO, the field has developed a rich collection of algorithms. Recent integration with large language models opens new possibilities for combining symbolic reasoning with learning.
+
+Key takeaways:
+\begin{enumerate}
+    \item Value-based methods optimize expected cumulative reward
+    \item Policy gradient methods directly optimize the policy
+    \item Model-based methods leverage learned environment models
+    \item Multi-agent and offline settings present unique challenges
+    \item LLM integration enables new applications and capabilities
+\end{enumerate}
+
+\section*{References}
+
+\cite{Sutton1998}
+\cite{Watkins1992}
+\cite{Williams1992}
+\cite{Mnih2015}
+\cite{Schulman2017}
+\cite{Lillicrap2016}
+
+\begin{thebibliography}{99}
+
+\bibitem{Sutton1998}
+Sutton, R. S., \& Barto, A. G. (1998).
+\textit{Reinforcement learning: An introduction}.
+MIT press.
+
+\bibitem{Watkins1992}
+Watkins, C. J., \& Dayan, P. (1992).
+Q-learning.
+\textit{Machine learning}, 8(3-4), 279-292.
+
+\bibitem{Williams1992}
+Williams, R. J. (1992).
+Simple statistical gradient-following algorithms for connectionist reinforcement learning.
+\textit{Machine learning}, 8(3-4), 229-256.
+
+\bibitem{Mnih2015}
+Mnih, V., et al. (2015).
+Human-level control through deep reinforcement learning.
+\textit{Nature}, 529(7587), 529-533.
+
+\bibitem{Schulman2017}
+Schulman, J., Wolski, F., Dhariwal, P., Radford, A., \& Klimov, O. (2017).
+Proximal policy optimization algorithms.
+\textit{arXiv preprint arXiv:1707.06347}.
+
+\bibitem{Lillicrap2016}
+Lillicrap, T., Hunt, J. J., Pritzel, A., Heess, N., Erez, T., Tassa, Y., ... \& Wierstra, D. (2016).
+Continuous control with deep reinforcement learning.
+\textit{arXiv preprint arXiv:1604.01995}.
+
+\end{thebibliography}
+
+\appendix
+
+\section{Mathematical Background}
+
+\subsection{Probability and Statistics}
+
+For a random variable $X$, the expectation is:
+\[
+\EE[X] = \sum_x x \cdot \prob{X=x}
+\]
+
+The variance is:
+\[
+\VarOp(X) = \EE[(X - \EE[X])^2] = \EE[X^2] - (\EE[X])^2
+\]
+
+\subsection{Linear Algebra}
+
+For vectors $\mathbf{u}, \mathbf{v} \in \RR^n$, the dot product is:
+\[
+\langle \mathbf{u}, \mathbf{v} \rangle = \sum_{i=1}^n u_i v_i
+\]
+
+The matrix-vector product $\mathbf{y} = \mathbf{A}\mathbf{x}$ where $\mathbf{A} \in \RR^{m \times n}$ and $\mathbf{x} \in \RR^n$ produces $\mathbf{y} \in \RR^m$:
+\[
+y_i = \sum_{j=1}^n A_{ij} x_j
+\]
+
+\subsection{Calculus}
+
+The gradient of a function $f: \RR^n \to \RR$ is:
+\[
+\nabla f(\mathbf{x}) = \left[\frac{\partial f}{\partial x_1}, \frac{\partial f}{\partial x_2}, \ldots, \frac{\partial f}{\partial x_n}\right]^\top
+\]
+
+The chain rule for composition $h(x) = f(g(x))$ gives:
+\[
+\frac{dh}{dx} = \frac{df}{dg} \cdot \frac{dg}{dx}
+\]
+
+\end{document}

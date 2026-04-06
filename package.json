@@ -1,0 +1,28 @@
+{
+  "name": "htex",
+  "version": "0.0.1",
+  "private": true,
+  "workspaces": [
+    "packages/core",
+    "packages/react",
+    "packages/svelte",
+    "packages/vanilla",
+    "packages/vue",
+    "packages/demo-svelte",
+    "packages/demo-react"
+  ],
+  "scripts": {
+    "build": "bun run --filter '*' build",
+    "check": "bun run --filter '*' check",
+    "lint": "oxlint packages/*/src --config oxlintrc.json",
+    "test": "bun test packages/*/src",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules",
+    "demo:svelte": "bun run --cwd packages/demo-svelte dev",
+    "demo:react": "bun run --cwd packages/demo-react dev"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "oxlint": "^1.0.0",
+    "typescript": "~5.4.0"
+  }
+}

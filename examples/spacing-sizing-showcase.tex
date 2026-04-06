@@ -1,0 +1,98 @@
+\documentclass{article}
+
+\title{Spacing and Sizing Commands}
+\author{htex Library}
+\date{2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Font Size Changes}
+
+This is \small{small text} back to normal.
+
+This is \Large{large text} back to normal.
+
+\tiny{Tiny text is very small}
+
+\small{Small text}
+
+\normalsize{Normal size}
+
+\large{Large text}
+
+\Large{Larger text}
+
+\LARGE{Even larger text}
+
+\huge{Huge text}
+
+\Huge{Largest text}
+
+\normalsize{Return to normal}
+
+\section{Horizontal Spacing}
+
+Text\quad more text with quad spacing (1em).
+
+Text\qquad more text with qquad spacing (2em).
+
+Text\hspace{2cm}more text with 2cm horizontal space.
+
+Text\hspace{1em}more text with 1em horizontal space.
+
+\section{Vertical Spacing}
+
+First paragraph.
+
+\vspace{1cm}
+
+After 1cm vertical space, second paragraph.
+
+\medskip
+
+After medium skip.
+
+\bigskip
+
+After big skip.
+
+\smallskip
+
+After small skip.
+
+\section{Phantom Commands}
+
+Invisible placeholder: \phantom{This is hidden but takes space} and we continue.
+
+Horizontal phantom: X\hphantom{hidden}Y are separated by horizontal space.
+
+Vertical phantom: Line with \vphantom{descenders} and without descenders.
+
+\section{Practical Examples}
+
+Here's some alignment using phantom:
+
+\hspace{3em}Indented text
+
+\phantom{prefix}Aligned with phantom prefix
+
+Text\quad\quad\quad with multiple quads for spacing
+
+\section{Combined Spacing and Sizing}
+
+\Large{
+  Large text with spacing.
+  
+  \vspace{0.5cm}
+  
+  Continues here.
+}
+
+\normalsize{
+  Normal text again.
+  \hspace{2cm} with horizontal space.
+}
+
+\end{document}

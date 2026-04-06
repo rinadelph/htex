@@ -1,0 +1,61 @@
+\documentclass{article}
+
+\title{Footnotes and Endnotes Support}
+\author{htex Library}
+\date{2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction to Footnotes}
+
+Footnotes are a way to add supplementary information without disrupting the main text.\footnote{This is the first footnote.} They appear at the bottom of the page where they are referenced.
+
+\section{Using Footnotes in Academic Writing}
+
+Academic papers frequently use footnotes for citations and additional context.\footnote{See the bibliography for complete references.} Multiple footnotes can appear on the same page.\footnote{This is another footnote on the same page.}
+
+\subsection{Footnote Examples}
+
+Here are some practical examples:
+
+1. Definitions: A footnote can provide a quick definition.\footnote{A footnote is a note placed at the bottom of a page.}
+
+2. Citations: Alternative to inline citations.\footnote{Smith, J. (2024). "Modern Publishing". Academic Press.}
+
+3. Clarifications: Supplementary details that would clutter the main text.\footnote{The full dataset is available at https://example.com/data}
+
+\section{Academic Paper Example}
+
+The main results show a 45\% improvement\footnote{Measured against baseline from Johnson et al. (2023).} compared to previous work. This was achieved through a novel approach\footnote{Complete algorithm details available in Appendix A.} that leverages recent advances in the field.
+
+Table \ref{table:results} presents the comparative analysis.\footnote{Standard deviation values are shown in parentheses.}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|r|r|}
+\hline
+Method & Accuracy & Speed \\
+\hline
+Baseline & 78.5\% & 2.3s \\
+Proposed & 89.2\% & 1.8s \\
+\hline
+\end{tabular}
+\caption{Performance Comparison}
+\label{table:results}
+\end{table}
+
+\section{Discussion}
+
+The results are statistically significant.\footnote{p < 0.01 using t-test.} Future work should investigate\footnote{We are currently exploring three promising directions.} scaling to larger datasets.
+
+\subsection{Limitations}
+
+Our approach has some limitations.\footnote{GPU memory requirements are approximately 16GB.} These should be considered when applying the method.
+
+\section{Conclusion}
+
+This work demonstrates the effectiveness of the proposed approach.\footnote{Code is available at https://github.com/example/repo} We believe it will inspire future research.\footnote{We welcome collaboration from interested researchers.}
+
+\end{document}

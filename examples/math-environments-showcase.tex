@@ -1,0 +1,154 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\title{Advanced LaTeX Math Environments}
+\author{htex Library}
+\date{2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Piecewise Functions with Cases}
+
+The absolute value function can be defined using the \texttt{cases} environment:
+
+\begin{equation}
+|x| = \begin{cases}
+  -x & \text{if } x < 0 \\
+  x & \text{if } x \geq 0
+\end{cases}
+\end{equation}
+
+The Heaviside step function is another common use:
+
+\begin{equation}
+H(t) = \begin{cases}
+  0 & t < 0 \\
+  1/2 & t = 0 \\
+  1 & t > 0
+\end{cases}
+\end{equation}
+
+\section{Multi-line Equations with Split}
+
+When you need to align multi-line equations without explicit alignment markers:
+
+\begin{equation}
+\begin{split}
+(x + y)^3 &= x^3 + 3x^2y + 3xy^2 + y^3 \\
+&= x^3 + 3xy(x + y) + y^3
+\end{split}
+\end{equation}
+
+\section{Aligned Equations}
+
+Use the \texttt{aligned} environment for inline alignment:
+
+\begin{equation}
+\begin{aligned}
+2x + 3y &= 7 \\
+x - y &= 1
+\end{aligned}
+\end{equation}
+
+\section{Matrix Varieties}
+
+\subsection{Standard Matrix (no delimiters)}
+
+\begin{equation}
+A = \begin{matrix}
+  1 & 2 & 3 \\
+  4 & 5 & 6 \\
+  7 & 8 & 9
+\end{matrix}
+\end{equation}
+
+\subsection{Parenthesis Matrix}
+
+\begin{equation}
+B = \begin{pmatrix}
+  a & b \\
+  c & d
+\end{pmatrix}
+\end{equation}
+
+\subsection{Square Bracket Matrix}
+
+\begin{equation}
+C = \begin{bmatrix}
+  1 & 0 & 0 \\
+  0 & 1 & 0 \\
+  0 & 0 & 1
+\end{bmatrix}
+\end{equation}
+
+\subsection{Determinant (Vertical Bar Matrix)}
+
+\begin{equation}
+\det(A) = \begin{vmatrix}
+  a & b \\
+  c & d
+\end{vmatrix} = ad - bc
+\end{equation}
+
+\subsection{Double Vertical Bar Matrix (Norm)}
+
+\begin{equation}
+\|v\| = \begin{Vmatrix}
+  v_1 \\
+  v_2 \\
+  v_3
+\end{Vmatrix}
+\end{equation}
+
+\subsection{Small Matrix (inline)}
+
+The matrix $\begin{smallmatrix} 1 & 2 \\ 3 & 4 \end{smallmatrix}$ can fit inline.
+
+\section{Gathered Equations}
+
+For centered, multi-line equations without alignment:
+
+\begin{equation}
+\begin{gathered}
+f(x) = x^2 + 2x + 1 \\
+= (x + 1)^2
+\end{gathered}
+\end{equation}
+
+\section{Aligned with Fixed Columns}
+
+Using \texttt{alignedat} for multiple alignment points:
+
+\begin{equation}
+\begin{alignedat}{2}
+x &= a + b \quad & y &= c + d \\
+x - y &= a - c \quad & 2x &= a + b + c + d
+\end{alignedat}
+\end{equation}
+
+\section{Subarray for Indices}
+
+Use \texttt{subarray} for multi-line superscripts or subscripts:
+
+\begin{equation}
+\sum_{\begin{subarray}{l}
+  i=1 \\
+  j=1
+\end{subarray}}^{n} a_{ij}
+\end{equation}
+
+\section{Display Cases}
+
+The \texttt{dcases} environment uses display-size fonts:
+
+\begin{equation}
+f(x) = \begin{dcases}
+  \frac{1}{2}(x^2 + 1) & \text{if } |x| \leq 1 \\
+  \frac{1}{2}(|x| + 1) & \text{if } |x| > 1
+\end{dcases}
+\end{equation}
+
+\end{document}

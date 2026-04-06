@@ -1,0 +1,192 @@
+\documentclass[]{TEAI}
+\usepackage{helvet}
+
+\usepackage{amsmath} 
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{subcaption} 
+\usepackage{listings}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+
+\usepackage[toc,page,header]{appendix}
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{lmodern}        % scalable Latin Modern fonts
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+% \usepackage{xcolor}         % colors
+\usepackage{wrapfig}
+
+\usepackage{amssymb}  % 用于特殊符号如♠♣等
+\usepackage{fontawesome}  % 用于邮箱图标 \faEnvelope
+\usepackage{url}  % 用于 \url 命令
+
+\usepackage{titletoc}
+
+\usepackage{tikz}  % 用于绘制彩色标记符号
+\usepackage{comment}  % 用于注释备用版本
+\usepackage{tabularx}  % 如果需要自动调整列宽
+\usepackage{booktabs}  % 用于更美观的表格线条(可选)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage[most]{tcolorbox}
+% \usepackage{fontspec}
+% \usepackage{xeCJK}
+% \setCJKmainfont{FandolSong-Regular}
+
+\usepackage{minitoc}
+
+% \usepackage[table]{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{etoolbox}
+\newcommand{\maxbold}[1]{\textbf{#1}}
+\definecolor{lightblue}{RGB}{200, 230, 255}  
+\definecolor{headerblue}{RGB}{150, 200, 255} 
+
+\usepackage{pgfplots}
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{comment}
+\usepackage{multirow} % For multi-row cells
+\usepackage{amsmath} % For \text command if needed inside math mode\Delta
+\usepackage{makecell} % For multi-line cells and better vertical spacing in cells
+\usepackage{siunitx}  % For better number alignment (optional but recommended)
+\usepackage{tikz}
+\usepackage{pgf-pie} % Package for creating pie charts
+\usepackage{subcaption}
+\usepackage{wrapfig}
+\usepackage[export]{adjustbox}
+
+
+\usepackage{ragged2e}      % for \RaggedRight in tabularx
+\usepackage{tabularx}       % For tables with fixed total width and auto-adjusting columns
+\usepackage{array}          % For advanced column formatting (like >{\centering\arraybackslash}X)
+\usepackage{caption}        % Recommended for figures/tables, but we'll do simple text below images here.
+\usepackage{enumitem}
+\usepackage{pifont}
+\usepackage[hang,flushmargin]{footmisc} % 更好的脚注处理
+
+\usepackage{tcolorbox}
+% \usepackage[breakable, skins]{tcolorbox} % intended for prompt box
+% \tcbuselibrary{skins}
+% \usepackage{xcolor}
+% \usepackage{fancybox} 
+
+% --- tcolorbox 加载方式 ---
+\usepackage{tcolorbox}    % 1. 先加载 tcolorbox 主包
+\tcbuselibrary{breakable}  % 2. 显式加载 breakable 库
+\tcbuselibrary{skins}      % 3. 显式加载 skins 库 (这个库提供 topruleatbreak 等选项)
+% --- tcolorbox 加载结束 ---
+
+\usepackage{tabularx}
+\usepackage{listings}
+
+%%%%%%%%%%%%%%%%%%%%
+
+%\title{\textsc{WisPaper}: An Intelligent Academic Retrieval and Literature Management Platform}
+
+\title{
+\raisebox{-0.18em}{\includegraphics[height=1.1em]{img/logo.png}}\hspace{0.4em}%
+  AgentHazard: A Benchmark for Evaluating Harmful Behavior in Computer-Use Agents
+}
+
+
+\author{
+    Yunhao Feng\textsuperscript{1,2,3*},
+    Yifan Ding\textsuperscript{1,2,*},
+    Yingshui Tan\textsuperscript{1},
+    Xingjun Ma\textsuperscript{2,$\dagger$}, \\
+    Yige Li\textsuperscript{5},
+    Yutao Wu\textsuperscript{4},
+    Yifeng Gao\textsuperscript{2,*},
+    Kun Zhai\textsuperscript{2},
+    Yanming Guo\textsuperscript{3}
+}
+
+\affiliation[1]{\mbox{Alibaba Group}} 
+\affiliation[2]{\mbox{Fudan University}} 
+\affiliation[3]{\mbox{Hunan Institute of Advanced Technology}}
+\affiliation[4]{\mbox{Deakin University}}
+\affiliation[5]{\mbox{Singapore Management University}}
+
+
+% \contribution[*]{Equal Contribution}
+% \contribution[\dagger]{Corresponding authors}
+
+\abstract{
+ Computer-use agents extend language models from text generation to persistent action over tools, files, and execution environments.
+Unlike chat systems, they maintain state across interactions and translate intermediate outputs into concrete actions.
+This creates a distinct safety challenge in that harmful behavior may emerge through sequences of individually plausible steps,
+including intermediate actions that appear locally acceptable but collectively lead to unauthorized actions.
+We present \textbf{AgentHazard}, a benchmark for evaluating harmful behavior in computer-use agents.
+AgentHazard contains \textbf{2,653} instances spanning diverse risk categories and attack strategies.
+Each instance pairs a harmful objective with a sequence of operational steps that are locally legitimate but jointly induce unsafe behavior.
+The benchmark evaluates whether agents can recognize and interrupt harm arising from accumulated context, repeated tool use, intermediate actions, and dependencies across steps.
+We evaluate AgentHazard on Claude Code, OpenClaw, and IFlow using mostly open or openly deployable models from the Qwen3, Kimi, GLM, and DeepSeek families.
+Our experimental results indicate that current systems remain highly vulnerable. In particular, when powered by Qwen3-Coder, Claude Code exhibits an attack success rate of \textbf{73.63\%}, suggesting that model alignment alone does not reliably guarantee the safety of autonomous agents.
+}
+
+\correspondence{\email{xingjunma@fudan.edu.cn}}
+\checkdata[Website]{\url{https://yunhao-feng.github.io/AgentHazard/}}
+
+
+\begin{document}
+\maketitle
+\renewcommand{\thefootnote}{}
+\footnotetext{$^*$Equal Contribution.\\$^\dagger$Corresponding authors.}
+\renewcommand{\thefootnote}{\arabic{footnote}}
+
+% Catalogue (Need \newpage)
+% \newpage
+% \tableofcontents
+% \newpage
+
+\vspace{-1.5em}
+
+\input{section/introduction}
+\input{section/relatedwork}
+\input{section/agenthazard}
+\input{section/experiments}
+\input{section/potentialapplications}
+\input{section/conclusion}
+
+
+\clearpage
+
+\bibliographystyle{plainnat}
+\bibliography{main}
+
+% \clearpage
+
+\newpage
+
+\beginappendix
+\input{section/appendix}
+
+% \startcontents[app]
+% \begingroup
+%   \renewcommand{\contentsname}{Appendix Contents}
+%   \section*{\contentsname}
+%   \printcontents[app]{}{1}{}
+% \endgroup
+% \newpage
+
+% \input{section/appendix}
+
+\end{document}
