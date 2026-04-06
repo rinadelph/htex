@@ -1,0 +1,34 @@
+{
+  "name": "@htex/svelte",
+  "version": "0.0.1",
+  "description": "Svelte adapter for @htex/core — render LaTeX documents as Svelte components",
+  "keywords": ["latex", "svelte", "htex", "rendering"],
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "@htex/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "svelte": ">=4.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "svelte": "^4.0.0",
+    "typescript": "~5.4.0"
+  }
+}
