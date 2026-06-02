@@ -283,7 +283,11 @@ export interface TableCellRenderNode extends BaseRenderNode {
 
 export interface TableRuleRenderNode extends BaseRenderNode {
   readonly type: 'tableRule'
-  readonly ruleKind: 'top' | 'mid' | 'bottom' | 'hline'
+  readonly ruleKind: 'top' | 'mid' | 'bottom' | 'hline' | 'cline'
+  /** For \cline{i-j}: 1-based first column the partial rule spans */
+  readonly columnStart?: number
+  /** For \cline{i-j}: 1-based last column the partial rule spans */
+  readonly columnEnd?: number
 }
 
 export interface FigureRenderNode extends BaseRenderNode {
@@ -438,6 +442,14 @@ export interface StyledTextRenderNode extends BaseRenderNode {
   readonly color?: string
   /** CSS text-align e.g. 'center' */
   readonly textAlign?: string
+  /** CSS margin-top e.g. '1cm' — used for \vspace */
+  readonly marginTop?: string
+  /** CSS margin-right e.g. '2em' — used for \hspace */
+  readonly marginRight?: string
+  /** CSS visibility e.g. 'hidden' — used for \phantom */
+  readonly visibility?: string
+  /** CSS white-space e.g. 'nowrap' — used for \hphantom */
+  readonly whiteSpace?: string
   readonly children: readonly RenderNode[]
 }
 

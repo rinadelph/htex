@@ -34,7 +34,12 @@ function escWithDashes(s: string): string {
     .replace(/'/g, '\u2019')    // right single quote (apostrophe)
 }
 
-// ── Math rendering via KaTeX 	 MathML (no CSS required) ──────────────────
+// ── Math rendering via KaTeX ──────────────────────────────────────────────
+// Emits BOTH the visual HTML and the MathML (KaTeX `htmlAndMathml`). This is the
+// only output that renders visibly when the standard katex stylesheet is present
+// (the stylesheet hides the bare `.katex-mathml` node), so it is the correct
+// default for browser embedding. Callers that want print/self-contained MathML
+// can post-process, but on-screen this must produce the html layer.
 function renderMathKatex(latex: string, display: boolean): string {
   try {
     return katex.renderToString(latex, {
@@ -43,7 +48,7 @@ function renderMathKatex(latex: string, display: boolean): string {
       errorColor: '#cc0000',
       trust: false,
       strict: 'ignore',
-      output: 'mathml',  // Self-contained, no external CSS needed
+      output: 'htmlAndMathml',
     })
   } catch {
     const cls = display ? 'htex-math-display-err' : 'htex-math-inline-err'
@@ -999,8 +1004,12 @@ function renderStyledText(
   if (node.fontFamily)   styles.push(`font-family:${node.fontFamily}`)
   if (node.color)        styles.push(`color:${node.color}`)
   if (node.textAlign)    styles.push(`text-align:${node.textAlign}`)
+  if (node.marginTop)    styles.push(`margin-top:${node.marginTop}`)
+  if (node.marginRight)  styles.push(`margin-right:${node.marginRight}`)
+  if (node.visibility)   styles.push(`visibility:${node.visibility}`)
+  if (node.whiteSpace)   styles.push(`white-space:${node.whiteSpace}`)
   const styleAttr = styles.length ? ` style="${styles.join(';')}"` : ''
-  const isBlock = node.textAlign != null ||
+  const isBlock = node.textAlign != null || node.marginTop != null ||
     (node.fontSize != null && parseFloat(node.fontSize) >= 12)
   const tag = isBlock ? 'div' : 'span'
   return `<${tag} class="htex-styled"${styleAttr}>${renderChildren(node.children, theme, diagUrl)}</${tag}>`

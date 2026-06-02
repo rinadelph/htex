@@ -89,8 +89,8 @@ const DEFAULT_ENV_STYLES = {
 function buildMacroMap(preamble) {
     const m = new Map();
     for (const cmd of preamble.commands) {
-        if (cmd.argCount === 0)
-            m.set(cmd.name, [...cmd.body]);
+        // Store ALL macros with their argument count and body
+        m.set(cmd.name, { argCount: cmd.argCount, body: [...cmd.body] });
     }
     return m;
 }
@@ -202,12 +202,58 @@ export function transform(ast, options = {}) {
         docAuthor,
         docDate,
         tikzCounter: 0,
+        footnoteCounter: 0,
+        footnotes: [],
+        endnoteCounter: 0,
+        endnotes: [],
     };
     // First pass: collect labels with placeholder text
     let _labelCounter = 0;
     collectLabels(ast.body, ctx.labels, () => String(++_labelCounter));
     // Second pass: transform body
     const children = transformNodes(ast.body, ctx);
+    // Collect footnotes and append to children
+    const docChildren = [...children];
+    // Add footnotes section if any footnotes exist
+    if (ctx.footnotes.length > 0) {
+        docChildren.push({
+            type: 'styledText',
+            children: [{ type: 'text', content: '━━━━━━━━━━━━━━━━━━━━━━' }]
+        });
+        for (const fn of ctx.footnotes) {
+            docChildren.push({
+                type: 'paragraph',
+                children: [
+                    { type: 'text', content: `${fn.number}. ` },
+                    ...fn.content
+                ]
+            });
+        }
+    }
+    // Add endnotes section if any endnotes exist
+    if (ctx.endnotes.length > 0) {
+        docChildren.push({
+            type: 'paragraph',
+            children: [{ type: 'text', content: '═══════════════════════' }]
+        });
+        docChildren.push({
+            type: 'section',
+            level: 1,
+            number: '',
+            title: [{ type: 'text', content: 'Endnotes' }],
+            id: 'endnotes',
+            children: []
+        });
+        for (const en of ctx.endnotes) {
+            docChildren.push({
+                type: 'paragraph',
+                children: [
+                    { type: 'text', content: `${en.number}. ` },
+                    ...en.content
+                ]
+            });
+        }
+    }
     // Build document node
     const docMeta = {
         documentClass: ast.preamble.documentClass,
@@ -222,7 +268,7 @@ export function transform(ast, options = {}) {
     const docNode = {
         type: 'document',
         metadata: docMeta,
-        children,
+        children: docChildren,
     };
     return [docNode];
 }
@@ -516,12 +562,52 @@ function transformGroup(node, ctx) {
         return children[0];
     return { type: 'paragraph', children };
 }
+// Macro argument substitution
+function substituteMacroArguments(body, args, ctx) {
+    const result = [];
+    for (const node of body) {
+        if (node.type === 'text' && /^\#\d+$/.test(node.content)) {
+            // This is a placeholder like #1, #2, etc.
+            const argIndex = parseInt(node.content.substring(1)) - 1; // #1 -> 0, #2 -> 1, etc.
+            if (argIndex >= 0 && argIndex < args.length) {
+                // Substitute with actual argument (deep copy)
+                const argAST = JSON.parse(JSON.stringify(args[argIndex]));
+                result.push(...argAST);
+            }
+        }
+        else if (node.type === 'group') {
+            // Recursively substitute in groups
+            result.push({ type: 'group', pos: node.pos, children: substituteMacroArguments(node.children, args, ctx) });
+        }
+        else if (node.type === 'command') {
+            // Recursively substitute in nested commands (each reqArg is its own ASTNode[] group)
+            const reqArgs = node.reqArgs.map(a => substituteMacroArguments(a, args, ctx));
+            result.push({ type: 'command', name: node.name, pos: node.pos, reqArgs, optArgs: node.optArgs });
+        }
+        else {
+            // Copy all other nodes as-is
+            result.push(node);
+        }
+    }
+    return result;
+}
 function transformCommand(node, ctx) {
     const name = node.name;
-    // Macro expansion
+    // Macro expansion with argument substitution
     if (ctx.options.expandMacros && ctx.macros.has(name)) {
-        const expanded = ctx.macros.get(name);
-        const children = expanded
+        const macroDef = ctx.macros.get(name);
+        const argCount = macroDef.argCount;
+        const providedArgsCount = node.reqArgs.length;
+        // Check if correct number of arguments provided
+        if (providedArgsCount !== argCount) {
+            // Return null for incorrect argument count (or could warn)
+            console.warn(`Macro \\${name} requires ${argCount} arguments, but ${providedArgsCount} provided`);
+            return null;
+        }
+        // Substitute #1, #2, #3, etc. with actual argument values
+        const substitutedBody = substituteMacroArguments(macroDef.body, node.reqArgs, ctx);
+        // Transform the substituted body recursively
+        const children = substitutedBody
             .map(n => transformNode(n, ctx))
             .filter((n) => n !== null);
         if (children.length === 1)
@@ -532,6 +618,7 @@ function transformCommand(node, ctx) {
     }
     const arg0 = node.reqArgs[0] ?? [];
     const arg1 = node.reqArgs[1] ?? [];
+    const arg2 = node.reqArgs[2] ?? [];
     switch (name) {
         case 'section':
         case 'section*': {
@@ -578,8 +665,29 @@ function transformCommand(node, ctx) {
             return it;
         }
         case 'texttt': {
-            const inner = flatText(arg0);
-            return { type: 'inlineCode', content: inner };
+            const ttContent = flatText(arg0);
+            const tt = { type: 'inlineCode', content: ttContent };
+            return tt;
+        }
+        case 'definecolor': {
+            const name = flatText(arg0);
+            const model = flatText(arg1);
+            const spec = flatText(arg2);
+            let hex = '';
+            if (model.toLowerCase() === 'rgb') {
+                const parts = spec.split(',').map(p => parseFloat(p.trim()));
+                if (parts.length === 3) {
+                    hex = '#' + parts
+                        .map(v => Math.round(v * 255).toString(16).padStart(2, '0'))
+                        .join('');
+                }
+            }
+            else if (model.toLowerCase() === 'html') {
+                hex = spec.startsWith('#') ? spec : '#' + spec;
+            }
+            if (name && hex)
+                ctx.colors.set(name.toLowerCase(), hex);
+            return null;
         }
         case 'textsc':
         case 'textsf':
@@ -647,39 +755,126 @@ function transformCommand(node, ctx) {
         case 'BibTeX': return { type: 'text', content: 'BibTeX' };
         case 'includegraphics': {
             const src = flatText(arg0);
-            // Parse width from optional args: [width=0.8\linewidth, height=3cm]
+            // Parse options: [width=0.8\linewidth, height=3cm, angle=90, scale=1.5, etc.]
             const optText = node.optArgs.length > 0 ? flatText(node.optArgs[0] ?? []) : '';
             let cssWidth;
-            // Match width=<value> — value may be a LaTeX dimension or command
+            let cssHeight;
+            let rotation;
+            let scale;
+            // Helper function to convert LaTeX dimensions to CSS
+            const convertDimension = (raw) => {
+                const trimmed = raw.trim();
+                if (trimmed.includes('linewidth') || trimmed.includes('textwidth') || trimmed === '\\linewidth' || trimmed === '\\textwidth') {
+                    const multMatch = trimmed.match(/^([0-9.]+)/);
+                    return multMatch ? `${Math.round(parseFloat(multMatch[1]) * 100)}%` : '100%';
+                }
+                else if (trimmed.match(/^[0-9.]+\s*(cm|mm|in|pt|em|ex|px|%)$/)) {
+                    return trimmed;
+                }
+                else if (trimmed.match(/^[0-9.]+$/)) {
+                    return trimmed + 'pt';
+                }
+                return undefined;
+            };
+            // Parse width
             const widthMatch = optText.match(/width\s*=\s*([^,\]]+)/);
             if (widthMatch) {
-                const raw = widthMatch[1].trim();
-                // Convert common LaTeX width expressions to CSS
-                if (raw.includes('linewidth') || raw.includes('textwidth') || raw === '\\linewidth' || raw === '\\textwidth') {
-                    // Extract numeric multiplier if present: 0.8\linewidth 	 80%
-                    const multMatch = raw.match(/^([0-9.]+)/);
-                    cssWidth = multMatch ? `${Math.round(parseFloat(multMatch[1]) * 100)}%` : '100%';
-                }
-                else if (raw.match(/^[0-9.]+\s*(cm|mm|in|pt|em|ex|px|%)$/)) {
-                    cssWidth = raw; // already a valid CSS unit
-                }
-                else if (raw.match(/^[0-9.]+$/)) {
-                    cssWidth = raw + 'pt'; // bare number — treat as pt
-                }
-                // If none of the above matched, leave cssWidth undefined (no style attr)
+                cssWidth = convertDimension(widthMatch[1]);
             }
+            // Parse height
+            const heightMatch = optText.match(/height\s*=\s*([^,\]]+)/);
+            if (heightMatch) {
+                cssHeight = convertDimension(heightMatch[1]);
+            }
+            // Parse scale
+            const scaleMatch = optText.match(/scale\s*=\s*([0-9.]+)/);
+            if (scaleMatch) {
+                scale = parseFloat(scaleMatch[1]);
+            }
+            // Parse angle/rotation
+            const angleMatch = optText.match(/angle\s*=\s*([0-9.-]+)/);
+            if (angleMatch) {
+                rotation = parseFloat(angleMatch[1]);
+            }
+            // NOTE: rotation/scale are parsed above but no renderer currently consumes
+            // them, so they are intentionally not emitted on the ImageRenderNode.
+            void rotation;
+            void scale;
             const img = {
                 type: 'image',
                 src,
                 alt: src,
                 width: cssWidth,
+                height: cssHeight,
             };
             return img;
+        }
+        case 'rotatebox': {
+            // \rotatebox{angle}{content}
+            const angle = parseFloat(flatText(arg0)) || 0;
+            // Content is in second required argument (handled separately)
+            const children = node.reqArgs[1]
+                ? node.reqArgs[1].map(n => transformNode(n, ctx)).filter((n) => n !== null)
+                : [];
+            if (children.length === 0)
+                return null;
+            // NOTE: rotation angle is parsed but no renderer currently consumes a
+            // rotation on styledText, so it is intentionally not emitted.
+            void angle;
+            return {
+                type: 'styledText',
+                children
+            };
         }
         case 'caption': {
             const children = arg0.map(n => transformNode(n, ctx)).filter((n) => n !== null);
             const cap = { type: 'caption', children };
             return cap;
+        }
+        case 'footnote': {
+            // \footnote{content}
+            ctx.footnoteCounter++;
+            const content = arg0.map(n => transformNode(n, ctx)).filter((n) => n !== null);
+            const id = `fn-${ctx.footnoteCounter}`;
+            ctx.footnotes.push({ id, number: ctx.footnoteCounter, content });
+            // Return a superscript number that acts as the footnote anchor
+            return {
+                type: 'styledText',
+                children: [
+                    { type: 'text', content: `[${ctx.footnoteCounter}]` }
+                ]
+            };
+        }
+        case 'endnote': {
+            // \endnote{content}
+            ctx.endnoteCounter++;
+            const content = arg0.map(n => transformNode(n, ctx)).filter((n) => n !== null);
+            const id = `en-${ctx.endnoteCounter}`;
+            ctx.endnotes.push({ id, number: ctx.endnoteCounter, content });
+            // Return a superscript number that acts as the endnote anchor
+            return {
+                type: 'styledText',
+                children: [
+                    { type: 'text', content: `[${ctx.endnoteCounter}]` }
+                ]
+            };
+        }
+        case 'footnotemark': {
+            // \footnotemark or \footnotemark[n]
+            const markNum = arg0.length > 0 ? parseInt(flatText(arg0)) : ctx.footnoteCounter;
+            return {
+                type: 'text',
+                content: `[${markNum}]`
+            };
+        }
+        case 'footnotetext': {
+            // \footnotetext{content} or \footnotetext[n]{content}
+            const textContent = arg0.map(n => transformNode(n, ctx)).filter((n) => n !== null);
+            // This typically follows \footnotemark, so just return the content
+            return {
+                type: 'paragraph',
+                children: textContent
+            };
         }
         case 'item': {
             const children = arg0.map(n => transformNode(n, ctx)).filter((n) => n !== null);
@@ -721,41 +916,62 @@ function transformCommand(node, ctx) {
         case 'rule':
         case 'hrule':
             return { type: 'hRule' };
-        // Formatting / spacing commands that silently vanish
-        case 'noindent':
-        case 'par':
-        case 'medskip':
-        case 'bigskip':
-        case 'smallskip':
+        // Formatting / spacing commands
+        case 'smallskip': {
+            // smallskip ≈ 3pt
+            return { type: 'styledText', children: [{ type: 'text', content: '' }] };
+        }
+        case 'medskip': {
+            // medskip ≈ 6pt  
+            return { type: 'styledText', children: [{ type: 'text', content: '' }] };
+        }
+        case 'bigskip': {
+            // bigskip ≈ 12pt
+            return { type: 'styledText', children: [{ type: 'text', content: '' }] };
+        }
         case 'vspace':
-        case 'vspace*':
+        case 'vspace*': {
+            // \vspace{1cm} — vertical spacing
+            const dimArg = flatText(arg0);
+            return { type: 'styledText', marginTop: dimArg, children: [{ type: 'text', content: '' }] };
+        }
         case 'hspace':
-        case 'hspace*':
-        case 'linewidth':
-        case 'textwidth':
-        case 'columnsep':
-        case 'sloppy':
-        case 'relax':
-        case 'protect':
-        case 'newline':
-        case 'linebreak':
-        case '\\': // \\ line break (with optional [skip] arg)
-        case 'quad':
-        case 'qquad':
+        case 'hspace*': {
+            // \hspace{2em} — horizontal spacing
+            const dimArg = flatText(arg0);
+            return { type: 'styledText', marginRight: dimArg, children: [{ type: 'text', content: '' }] };
+        }
+        case 'quad': {
+            // \quad = 1em
+            return { type: 'text', content: '\u00A0\u00A0\u00A0\u00A0' }; // 4 nbsp for ~1em
+        }
+        case 'qquad': {
+            // \qquad = 2em  
+            return { type: 'text', content: '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0' }; // 8 nbsp for ~2em
+        }
+        case 'phantom': {
+            // \phantom{text} — invisible placeholder with full dimensions
+            const content = arg0.map(n => transformNode(n, ctx)).filter((n) => n !== null);
+            return { type: 'styledText', visibility: 'hidden', children: content.length > 0 ? content : [{ type: 'text', content: '' }] };
+        }
+        case 'hphantom': {
+            // \hphantom{text} — invisible horizontal placeholder
+            const content = arg0.map(n => transformNode(n, ctx)).filter((n) => n !== null);
+            return { type: 'styledText', visibility: 'hidden', whiteSpace: 'nowrap', children: content.length > 0 ? content : [{ type: 'text', content: '' }] };
+        }
+        case 'vphantom': {
+            // \vphantom{text} — invisible vertical placeholder
+            const content = arg0.map(n => transformNode(n, ctx)).filter((n) => n !== null);
+            return { type: 'styledText', visibility: 'hidden', children: content.length > 0 ? content : [{ type: 'text', content: '' }] };
+        }
         case 'thinspace':
-        case 'enspace':
-        case 'negthinspace':
-        case 'arraybackslash':
-        case 'allowbreak':
-        case 'nobreak':
-        case 'penalty':
-        case 'vfil':
-        case 'null':
-            return null;
-        // Font-size declarations outside groups: render content with font-size style
-        // When standalone (no content), these are pure state changes — drop them.
-        // This handles cases like: \large Some text (rare in practice, \large is
-        // almost always inside a group — but handle gracefully anyway)
+        case 'enspace': {
+            return { type: 'text', content: ' ' };
+        }
+        case 'negthinspace': {
+            return null; // Negative space is complex, skip for now
+        }
+        // Font-size declarations with argument
         case 'normalsize':
         case 'large':
         case 'Large':
@@ -766,18 +982,15 @@ function transformCommand(node, ctx) {
         case 'footnotesize':
         case 'scriptsize':
         case 'tiny': {
-            // If the command was parsed with a required arg (shouldn't happen for
-            // size declarations, but be defensive), render it with font styling.
-            if (arg0.length > 0) {
-                const fontSize = FONT_SIZE_MAP[name] ?? '10pt';
-                const children = arg0.map(n => transformNode(n, ctx)).filter((n) => n !== null);
-                if (children.length === 0)
-                    return null;
-                const styled = { type: 'styledText', fontSize, children };
-                return styled;
-            }
-            // Standalone size declaration — pure state change, drop it
-            return null;
+            // Font size declaration with content
+            const fontSize = FONT_SIZE_MAP[name] ?? '10pt';
+            const children = arg0.length > 0
+                ? arg0.map(n => transformNode(n, ctx)).filter((n) => n !== null)
+                : transformNodes(node.reqArgs[0] ?? [], ctx);
+            if (children.length === 0)
+                return null;
+            const styled = { type: 'styledText', fontSize, children };
+            return styled;
         }
         // Font-shape/weight declarations outside groups — drop (state change only)
         case 'centering':
@@ -847,7 +1060,6 @@ function transformEnvironment(node, ctx) {
         case 'tabular':
         case 'longtable':
         case 'tabularx':
-        case 'array':
             return transformTable(node, ctx);
         case 'figure':
         case 'figure*': {
@@ -924,7 +1136,24 @@ function transformEnvironment(node, ctx) {
         case 'gather':
         case 'gather*':
         case 'multline':
-        case 'multline*': {
+        case 'multline*':
+        case 'split':
+        case 'split*':
+        case 'cases':
+        case 'dcases':
+        case 'aligned':
+        case 'alignedat':
+        case 'gathered':
+        case 'gathered*':
+        case 'subarray':
+        case 'matrix':
+        case 'pmatrix':
+        case 'bmatrix':
+        case 'Bmatrix':
+        case 'vmatrix':
+        case 'Vmatrix':
+        case 'smallmatrix':
+        case 'array': {
             const raw = flattenBodyToString(node.body);
             const dm = { type: 'mathDisplay', latex: raw };
             return dm;
@@ -1026,12 +1255,26 @@ function transformTable(node, ctx) {
         // Check if this row is a rule command
         if (rowNodes.length === 1 && rowNodes[0]?.type === 'command') {
             const cmd = rowNodes[0];
-            if (['toprule', 'midrule', 'bottomrule', 'hline'].includes(cmd.name)) {
-                const ruleKind = cmd.name === 'toprule' ? 'top'
-                    : cmd.name === 'midrule' ? 'mid'
-                        : cmd.name === 'bottomrule' ? 'bottom'
-                            : 'hline';
-                rows.push({ type: 'tableRule', ruleKind });
+            if (['toprule', 'midrule', 'bottomrule', 'hline', 'cline', 'hhline'].includes(cmd.name)) {
+                if (cmd.name === 'cline') {
+                    // \cline{i-j} — partial horizontal line from column i to j
+                    const rangeArg = flatText(cmd.reqArgs[0] ?? []);
+                    const match = rangeArg.match(/(\d+)-(\d+)/);
+                    const colStart = match ? parseInt(match[1], 10) : 1;
+                    const colEnd = match ? parseInt(match[2], 10) : colAligns.length;
+                    rows.push({ type: 'tableRule', ruleKind: 'cline', columnStart: colStart, columnEnd: colEnd });
+                }
+                else if (cmd.name === 'hhline') {
+                    // \hhline{-|-|-} — complex horizontal lines, treat as hline for now
+                    rows.push({ type: 'tableRule', ruleKind: 'hline' });
+                }
+                else {
+                    const ruleKind = cmd.name === 'toprule' ? 'top'
+                        : cmd.name === 'midrule' ? 'mid'
+                            : cmd.name === 'bottomrule' ? 'bottom'
+                                : 'hline';
+                    rows.push({ type: 'tableRule', ruleKind });
+                }
                 continue;
             }
         }
@@ -1049,22 +1292,38 @@ function transformTable(node, ctx) {
         const cells = [];
         for (let colIdx = 0; colIdx < cellGroups.length; colIdx++) {
             const cellNodes = cellGroups[colIdx];
-            // Check for \multicolumn
-            if (cellNodes.length >= 1 && cellNodes[0]?.type === 'command' && cellNodes[0].name === 'multicolumn') {
-                const mc = cellNodes[0];
-                const span = parseInt(flatText(mc.reqArgs[0] ?? [])) || 1;
-                const alignRaw = flatText(mc.reqArgs[1] ?? []);
-                const align = alignRaw.startsWith('c') ? 'center' : alignRaw.startsWith('r') ? 'right' : 'left';
-                const children = (mc.reqArgs[2] ?? [])
-                    .map(n => transformNode(n, ctx))
-                    .filter((n) => n !== null);
-                cells.push({ type: 'tableCell', colspan: span, rowspan: 1, align, children });
+            // Check for \multirow first
+            let colSpan = 1;
+            let rowSpan = 1;
+            let cellAlign = colAligns[colIdx] ?? 'left';
+            let contentNodes = cellNodes;
+            if (cellNodes.length >= 1 && cellNodes[0]?.type === 'command') {
+                const firstCmd = cellNodes[0];
+                // \multirow{nrows}[nOmit]{width}{contents}
+                if (firstCmd.name === 'multirow') {
+                    const nrows = parseInt(flatText(firstCmd.reqArgs[0] ?? [])) || 1;
+                    rowSpan = nrows;
+                    // Width argument (optional second bracket arg, or third required arg)
+                    // Contents are in the next required argument
+                    const widthOrContent = firstCmd.reqArgs[1] ?? firstCmd.reqArgs[2] ?? [];
+                    contentNodes = [
+                        ...(firstCmd.reqArgs[1] ? [] : cellNodes.slice(1)),
+                        ...widthOrContent
+                    ];
+                    if (firstCmd.reqArgs.length > 2) {
+                        contentNodes = firstCmd.reqArgs[2] ?? [];
+                    }
+                }
+                // \multicolumn{ncols}{align}{contents}
+                else if (firstCmd.name === 'multicolumn') {
+                    colSpan = parseInt(flatText(firstCmd.reqArgs[0] ?? [])) || 1;
+                    const alignRaw = flatText(firstCmd.reqArgs[1] ?? []);
+                    cellAlign = alignRaw.startsWith('c') ? 'center' : alignRaw.startsWith('r') ? 'right' : 'left';
+                    contentNodes = firstCmd.reqArgs[2] ?? [];
+                }
             }
-            else {
-                const colAlign = colAligns[colIdx] ?? 'left';
-                const children = transformNodes(cellNodes, ctx);
-                cells.push({ type: 'tableCell', colspan: 1, rowspan: 1, align: colAlign, children });
-            }
+            const children = transformNodes(contentNodes, ctx);
+            cells.push({ type: 'tableCell', colspan: colSpan, rowspan: rowSpan, align: cellAlign, children });
         }
         // Skip completely empty rows
         if (cells.every(c => c.children.length === 0))
@@ -1082,8 +1341,8 @@ function splitTableRows(nodes) {
         // Skip pure whitespace text
         if (n.type === 'text' && n.content.replace(/\s/g, '') === '')
             continue;
-        // Rule commands are their own rows
-        if (n.type === 'command' && ['toprule', 'midrule', 'bottomrule', 'hline'].includes(n.name)) {
+        // Rule commands are their own rows (including \cline)
+        if (n.type === 'command' && ['toprule', 'midrule', 'bottomrule', 'hline', 'cline', 'hhline'].includes(n.name)) {
             if (current.length > 0) {
                 rows.push(current);
                 current = [];

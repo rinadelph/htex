@@ -28,7 +28,7 @@ import type {
 export interface TransformContext {
   colors: Map<string, string>         // name → hex
   customEnvs: Map<string, { borderColor: string; bgColor: string }>
-  macros: Map<string, ASTNode[]>      // macro name → expansion
+  macros: Map<string, { argCount: number; body: ASTNode[] }>      // macro name → expansion definition
   labels: Map<string, string>         // label id → display text
   sectionCounters: [number, number, number]  // [h1, h2, h3]
   tocEntries: TOCEntry[]
@@ -268,8 +268,8 @@ export function transform(ast: DocumentAST, options: TransformOptions = {}): Ren
     docChildren.push({
       type: 'section',
       level: 1,
-      number: 'Endnotes',
-      title: 'Endnotes',
+      number: '',
+      title: [{ type: 'text', content: 'Endnotes' }],
       id: 'endnotes',
       children: []
     })
@@ -600,7 +600,7 @@ function transformGroup(node: GroupASTNode, ctx: TransformContext): RenderNode |
 
 
 // Macro argument substitution
-function substituteMacroArguments(body: ASTNode[], args: ASTNode[], ctx: TransformContext): ASTNode[] {
+function substituteMacroArguments(body: readonly ASTNode[], args: readonly ASTNode[][], ctx: TransformContext): ASTNode[] {
 	const result: ASTNode[] = []
 
 	for (const node of body) {
@@ -610,15 +610,16 @@ function substituteMacroArguments(body: ASTNode[], args: ASTNode[], ctx: Transfo
 
 			if (argIndex >= 0 && argIndex < args.length) {
 				// Substitute with actual argument (deep copy)
-				const argAST = JSON.parse(JSON.stringify(args[argIndex]))
+				const argAST = JSON.parse(JSON.stringify(args[argIndex])) as ASTNode[]
 				result.push(...argAST)
 			}
 		} else if (node.type === 'group' ) {
 			// Recursively substitute in groups
-			result.push({ type: 'group', children: substituteMacroArguments(node.children, args, ctx) })
+			result.push({ type: 'group', pos: node.pos, children: substituteMacroArguments(node.children, args, ctx) })
 		} else if (node.type === 'command' ) {
-			// Recursively substitute in nested commands
-			result.push({ type: 'command', name: node.name, reqArgs: substituteMacroArguments(node.reqArgs, args, ctx), optArgs: node.optArgs })
+			// Recursively substitute in nested commands (each reqArg is its own ASTNode[] group)
+			const reqArgs = node.reqArgs.map(a => substituteMacroArguments(a, args, ctx))
+			result.push({ type: 'command', name: node.name, pos: node.pos, reqArgs, optArgs: node.optArgs })
 		} else {
 			// Copy all other nodes as-is
 			result.push(node)
@@ -658,6 +659,7 @@ function transformCommand(node: CommandNode, ctx: TransformContext): RenderNode 
 
   const arg0 = node.reqArgs[0] ?? []
   const arg1 = node.reqArgs[1] ?? []
+  const arg2 = node.reqArgs[2] ?? []
 
   switch (name) {
     case 'section':
@@ -704,6 +706,10 @@ function transformCommand(node: CommandNode, ctx: TransformContext): RenderNode 
       return it
     }
     case 'texttt': {
+      const ttContent = flatText(arg0)
+      const tt: InlineCodeRenderNode = { type: 'inlineCode', content: ttContent }
+      return tt
+    }
     case 'definecolor': {
       const name = flatText(arg0)
       const model = flatText(arg1)
@@ -712,17 +718,15 @@ function transformCommand(node: CommandNode, ctx: TransformContext): RenderNode 
       if (model.toLowerCase() === 'rgb') {
         const parts = spec.split(',').map(p => parseFloat(p.trim()))
         if (parts.length === 3) {
-          const [r, g, b] = parts.map(v => Math.round(v * 255))
-          hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')
+          hex = '#' + parts
+            .map(v => Math.round(v * 255).toString(16).padStart(2, '0'))
+            .join('')
         }
       } else if (model.toLowerCase() === 'html') {
         hex = spec.startsWith('#') ? spec : '#' + spec
       }
       if (name && hex) ctx.colors.set(name.toLowerCase(), hex)
       return null
-    }
-      const inner = flatText(arg0)
-      return { type: 'inlineCode', content: inner }
     }
     case 'textsc':
     case 'textsf':
@@ -839,14 +843,15 @@ function transformCommand(node: CommandNode, ctx: TransformContext): RenderNode 
         rotation = parseFloat(angleMatch[1]!)
       }
 
+      // NOTE: rotation/scale are parsed above but no renderer currently consumes
+      // them, so they are intentionally not emitted on the ImageRenderNode.
+      void rotation; void scale
       const img: ImageRenderNode = {
         type: 'image',
         src,
         alt: src,
         width: cssWidth,
         height: cssHeight,
-        rotation,
-        scale,
       }
       return img
     }
@@ -860,10 +865,12 @@ function transformCommand(node: CommandNode, ctx: TransformContext): RenderNode 
         : []
       
       if (children.length === 0) return null
-      
+
+      // NOTE: rotation angle is parsed but no renderer currently consumes a
+      // rotation on styledText, so it is intentionally not emitted.
+      void angle
       return {
         type: 'styledText',
-        rotation: angle,
         children
       }
     }
@@ -1113,7 +1120,6 @@ function transformEnvironment(node: EnvironmentNode, ctx: TransformContext): Ren
     case 'tabular':
     case 'longtable':
     case 'tabularx':
-    case 'array':
       return transformTable(node, ctx)
 
     case 'figure':
